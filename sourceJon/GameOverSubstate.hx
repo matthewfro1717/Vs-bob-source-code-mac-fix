@@ -83,7 +83,10 @@ class GameOverSubstate extends MusicBeatSubstate
 					#else
 						FlxG.openURL(website[0]);
 					#end
+
+					#if desktop
 					Sys.exit(0);
+					#end
 				}
 		}
 		

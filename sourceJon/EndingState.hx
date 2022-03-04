@@ -117,7 +117,9 @@ class EndingState extends FlxState
 															neverforget.text = "I L L  N E V E R  F O R G E T  Y O U";
 															new FlxTimer().start(3, function(deadTime:FlxTimer)
 															{
+																#if desktop
 																Sys.exit(0);
+																#end
 															});
 														});
 													});

@@ -104,7 +104,9 @@ class OnslaughtEndingState extends FlxState
 													add(neverforget);
 													new FlxTimer().start(3, function(deadTime:FlxTimer)
 													{
+														#if desktop
 														Sys.exit(0);
+														#end
 													});
 												});
 											});
