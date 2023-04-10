@@ -40,19 +40,15 @@ class OptionsMenu extends MusicBeatState
 		new OptionCatagory("Appearence", [
 			new SongPositionOption("Show the songs current position (as a bar)"),
 			new DownscrollOption("Change the layout of the strumline."),
-			#if !html
 			new RainbowFPSOption("Make the FPS Counter Rainbow (Only works with the FPS Counter toggeled on)"),
-			#end
 			new AccuracyOption("Display accuracy information."),
 			new NPSDisplayOption("Shows your current Notes Per Second.")
 		]),
-		#if !mobile
 		new OptionCatagory("Misc", [
-			
 			new FPSOption("Toggle the FPS Counter"),
 			new ReplayOption("View replays")
+			new BotPlay("Showcase your charts and mods with autoplay.")
 		])
-		#end
 	];
 
 	private var currentDescription:String = "";
