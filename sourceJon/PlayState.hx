@@ -1663,8 +1663,10 @@ class PlayState extends MusicBeatState
 	var songTime:Float = 0;
 
 	if (PlayStateChangeables.botPlay || loadRep || paused)
+	{
 		return;
-
+        }
+	
 	function startSong():Void
 	{
 		startingSong = false;
