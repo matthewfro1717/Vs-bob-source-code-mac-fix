@@ -201,6 +201,9 @@ class PlayState extends MusicBeatState
 	
 	// Will decide if she's even allowed to headbang at all depending on the song
 	private var allowedToHeadbang:Bool = false;
+		
+	// BotPlay text
+	private var botPlayState:FlxText;
 	override public function create()
 	{
 
@@ -217,6 +220,8 @@ class PlayState extends MusicBeatState
 		repPresses = 0;
 		repReleases = 0;
 
+		PlayStateChangeables.botPlay = FlxG.save.data.botplay;
+		
 		#if windows
 		// Making difficulty text for Discord Rich Presence.
 		switch (storyDifficulty)
@@ -279,8 +284,9 @@ class PlayState extends MusicBeatState
 		Conductor.mapBPMChanges(SONG);
 		Conductor.changeBPM(SONG.bpm);
 
-		trace('INFORMATION ABOUT WHAT U PLAYIN WIT:\nFRAMES: ' + Conductor.safeFrames + '\nZONE: ' + Conductor.safeZoneOffset + '\nTS: ' + Conductor.timeScale);
-		
+		trace('INFORMATION ABOUT WHAT U PLAYIN WIT:\nFRAMES: ' + PlayStateChangeables.safeFrames + '\nZONE: ' + Conductor.safeZoneOffset + '\nTS: '
+			+ Conductor.timeScale + '\nBotPlay : ' + PlayStateChangeables.botPlay);
+
 		switch (SONG.song.toLowerCase())
 		{
 			case 'tutorial':
@@ -967,6 +973,8 @@ class PlayState extends MusicBeatState
 				gf.y += 300;
 		}
 
+		PlayStateChangeables.botPlay = true;
+
 		add(gf);
 
 		// Shitty layering but whatev it works LOL
@@ -1093,6 +1101,16 @@ class PlayState extends MusicBeatState
 			{
 				add(replayTxt);
 			}
+
+		// Literally copy-paste of the above, fu
+		botPlayState = new FlxText(healthBarBG.x + healthBarBG.width / 2 - 75, healthBarBG.y + (PlayStateChangeables.useDownscroll ? 100 : -100), 0,
+			"BOTPLAY", 20);
+		botPlayState.setFormat(Paths.font("vcr.ttf"), 42, FlxColor.WHITE, RIGHT, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
+		botPlayState.scrollFactor.set();
+		botPlayState.borderSize = 4;		
+                botPlayState.borderQuality = 2;
+		if (PlayStateChangeables.botPlay && !loadRep)
+			add(botPlayState);
 
 		iconP1 = new HealthIcon(SONG.player1, true);
 		iconP1.y = healthBar.y - (iconP1.height / 2);
@@ -1643,6 +1661,9 @@ class PlayState extends MusicBeatState
 	var previousFrameTime:Int = 0;
 	var lastReportedPlayheadPosition:Int = 0;
 	var songTime:Float = 0;
+
+	if (PlayStateChangeables.botPlay || loadRep || paused)
+		return;
 
 	function startSong():Void
 	{
@@ -2248,6 +2269,9 @@ class PlayState extends MusicBeatState
 			}
 		}
 
+		if (PlayStateChangeables.botPlay && FlxG.keys.justPressed.ONE)
+			camHUD.visible = !camHUD.visible;
+		
 		// FlxG.watch.addQuick('VOL', vocals.amplitudeLeft);
 		// FlxG.watch.addQuick('VOLRight', vocals.amplitudeRight);
 
@@ -2561,8 +2585,96 @@ class PlayState extends MusicBeatState
 						daNote.visible = true;
 						daNote.active = true;
 					}
-	
-					if (!daNote.mustPress && daNote.wasGoodHit)
+    
+					if (daNote.mustPress)
+							daNote.y = (playerStrums.members[Math.floor(Math.abs(daNote.noteData))].y
+								+ 0.45 * (Conductor.songPosition - daNote.strumTime) * FlxMath.roundDecimal(PlayStateChangeables.scrollSpeed == 1 ? SONG.speed : PlayStateChangeables.scrollSpeed,
+									2)) - daNote.noteYOff;
+						else
+							daNote.y = (strumLineNotes.members[Math.floor(Math.abs(daNote.noteData))].y
+								+ 0.45 * (Conductor.songPosition - daNote.strumTime) * FlxMath.roundDecimal(PlayStateChangeables.scrollSpeed == 1 ? SONG.speed : PlayStateChangeables.scrollSpeed,
+									2)) - daNote.noteYOff;
+						if (daNote.isSustainNote)
+						{
+							// Remember = minus makes notes go up, plus makes them go down
+							if (daNote.animation.curAnim.name.endsWith('end') && daNote.prevNote != null)
+								daNote.y += daNote.prevNote.height;
+							else
+								daNote.y += daNote.height / 2;
+
+							// If not in botplay, only clip sustain notes when properly hit, botplay gets to clip it everytime
+							if (!PlayStateChangeables.botPlay)
+							{
+								if ((!daNote.mustPress || daNote.wasGoodHit || daNote.prevNote.wasGoodHit || holdArray[Math.floor(Math.abs(daNote.noteData))] && !daNote.tooLate)
+									&& daNote.y - daNote.offset.y * daNote.scale.y + daNote.height >= (strumLine.y + Note.swagWidth / 2))
+								{
+									// Clip to strumline
+									var swagRect = new FlxRect(0, 0, daNote.frameWidth * 2, daNote.frameHeight * 2);
+									swagRect.height = (strumLineNotes.members[Math.floor(Math.abs(daNote.noteData))].y
+										+ Note.swagWidth / 2
+										- daNote.y) / daNote.scale.y;
+									swagRect.y = daNote.frameHeight - swagRect.height;
+
+									daNote.clipRect = swagRect;
+								}
+							}
+							else
+							{
+								var swagRect = new FlxRect(0, 0, daNote.frameWidth * 2, daNote.frameHeight * 2);
+								swagRect.height = (strumLineNotes.members[Math.floor(Math.abs(daNote.noteData))].y
+									+ Note.swagWidth / 2
+									- daNote.y) / daNote.scale.y;
+								swagRect.y = daNote.frameHeight - swagRect.height;
+
+								daNote.clipRect = swagRect;
+							}
+						}
+					}
+					else
+					{
+						if (daNote.mustPress)
+							daNote.y = (playerStrums.members[Math.floor(Math.abs(daNote.noteData))].y
+								- 0.45 * (Conductor.songPosition - daNote.strumTime) * FlxMath.roundDecimal(PlayStateChangeables.scrollSpeed == 1 ? SONG.speed : PlayStateChangeables.scrollSpeed,
+									2)) + daNote.noteYOff;
+						else
+							daNote.y = (strumLineNotes.members[Math.floor(Math.abs(daNote.noteData))].y
+								- 0.45 * (Conductor.songPosition - daNote.strumTime) * FlxMath.roundDecimal(PlayStateChangeables.scrollSpeed == 1 ? SONG.speed : PlayStateChangeables.scrollSpeed,
+									2)) + daNote.noteYOff;
+						if (daNote.isSustainNote)
+						{
+							daNote.y -= daNote.height / 2;
+
+							if (!PlayStateChangeables.botPlay)
+							{
+								if ((!daNote.mustPress || daNote.wasGoodHit || daNote.prevNote.wasGoodHit || holdArray[Math.floor(Math.abs(daNote.noteData))] && !daNote.tooLate)
+									&& daNote.y + daNote.offset.y * daNote.scale.y <= (strumLine.y + Note.swagWidth / 2))
+								{
+									// Clip to strumline
+									var swagRect = new FlxRect(0, 0, daNote.width / daNote.scale.x, daNote.height / daNote.scale.y);
+									swagRect.y = (strumLineNotes.members[Math.floor(Math.abs(daNote.noteData))].y
+										+ Note.swagWidth / 2
+										- daNote.y) / daNote.scale.y;
+									swagRect.height -= swagRect.y;
+
+									daNote.clipRect = swagRect;
+								}
+							}
+							else
+							{
+								var swagRect = new FlxRect(0, 0, daNote.width / daNote.scale.x, daNote.height / daNote.scale.y);
+								swagRect.y = (strumLineNotes.members[Math.floor(Math.abs(daNote.noteData))].y
+									+ Note.swagWidth / 2
+									- daNote.y) / daNote.scale.y;
+								swagRect.height -= swagRect.y;
+
+								daNote.clipRect = swagRect;
+							}
+						}
+					}
+				}
+
+				if (!daNote.mustPress && daNote.wasGoodHit)
+				{
 					{
 						if (SONG.song != 'Tutorial')
 							camZooming = true;
@@ -2626,7 +2738,14 @@ class PlayState extends MusicBeatState
 						{
 							health -= 0.075;
 							vocals.volume = 0;
-							if (theFunne)
+						if (theFunne && !daNote.isSustainNote)
+						{
+							if (PlayStateChangeables.botPlay)
+							{
+								daNote.rating = "bad";
+							        goodNoteHit(daNote);
+							}
+							else
 								noteMiss(daNote.noteData, daNote);
 						}
 	
@@ -2651,10 +2770,37 @@ class PlayState extends MusicBeatState
 		#end
 	}
 
+	if (FlxG.save.data.cpuStrums)
+	{
+		cpuStrums.forEach(function(spr:FlxSprite)
+		{
+			if (spr.animation.finished)
+			{
+					spr.animation.play('static');
+					spr.centerOffsets();
+			}
+		});
+		if (PlayStateChangeables.botPlay)
+		{
+			playerStrums.forEach(function(spr:FlxSprite)
+			{
+				if (spr.animation.finished)
+				{
+							spr.animation.play('static');
+							spr.centerOffsets();
+				}
+			});
+		}
+	}
+
 	function endSong():Void
 	{
 		if (!loadRep)
 			rep.SaveReplay();
+		else
+		{
+			PlayStateChangeables.botPlay = false;
+		}
 
 		canPause = false;
 		FlxG.sound.music.volume = 0;
@@ -2869,6 +3015,8 @@ class PlayState extends MusicBeatState
 	
 			
 			var msTiming = truncateFloat(noteDiff, 3);
+			if (PlayStateChangeables.botPlay && !loadRep)
+				msTiming = 0;
 
 			if (currentTimingShown != null)
 				remove(currentTimingShown);
@@ -2913,8 +3061,9 @@ class PlayState extends MusicBeatState
 
 			if (currentTimingShown.alpha != 1)
 				currentTimingShown.alpha = 1;
-
-			add(currentTimingShown);
+			
+			if (!PlayStateChangeables.botPlay || loadRep)
+				add(currentTimingShown);
 			
 
 
@@ -2933,7 +3082,8 @@ class PlayState extends MusicBeatState
 	
 			comboSpr.velocity.x += FlxG.random.int(1, 10);
 			currentTimingShown.velocity.x += comboSpr.velocity.x;
-			add(rating);
+			if (!PlayStateChangeables.botPlay || loadRep)
+				add(rating);
 	
 			if (!curStage.startsWith('school'))
 			{
@@ -3053,6 +3203,8 @@ class PlayState extends MusicBeatState
 		var rightHold:Bool = false;
 		var leftHold:Bool = false;	
 
+	// THIS FUNCTION JUST FUCKS WIT HELD NOTES AND BOTPLAY/REPLAY (also gamepad shit)
+
 	private function keyShit():Void
 	{
 		// HOLDING
@@ -3070,6 +3222,14 @@ class PlayState extends MusicBeatState
 		var rightR = controls.RIGHT_R;
 		var downR = controls.DOWN_R;
 		var leftR = controls.LEFT_R;
+		
+		// Prevent player input if botplay is on
+		if (PlayStateChangeables.botPlay)
+		{
+			holdArray = [false, false, false, false];
+			pressArray = [false, false, false, false];
+			releaseArray = [false, false, false, false];
+		}
 
 		if (loadRep) // replay code
 		{
@@ -3301,14 +3461,15 @@ class PlayState extends MusicBeatState
 				});
 			}
 	
-			if (boyfriend.holdTimer > Conductor.stepCrochet * 4 * 0.001 && !up && !down && !right && !left)
+			if (boyfriend.holdTimer > Conductor.stepCrochet * 4 * 0.001 && (!holdArray.contains(true) || PlayStateChangeables.botPlay))
 			{
 				if (boyfriend.animation.curAnim.name.startsWith('sing') && !boyfriend.animation.curAnim.name.endsWith('miss'))
 				{
 					boyfriend.playAnim('idle');
 				}
 			}
-	
+
+			if (!PlayStateChangeables.botPlay)
 				playerStrums.forEach(function(spr:FlxSprite)
 				{
 					switch (spr.ID)
@@ -3491,7 +3652,7 @@ class PlayState extends MusicBeatState
 	function getKeyPresses(note:Note):Int
 	{
 		var possibleNotes:Array<Note> = []; // copypasted but you already know that
-
+		if (PlayStateChangeables.botPlay)
 		notes.forEachAlive(function(daNote:Note)
 		{
 			if (daNote.canBeHit && daNote.mustPress && !daNote.tooLate)
